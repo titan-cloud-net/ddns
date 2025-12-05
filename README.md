@@ -98,6 +98,12 @@ With a configuration file:
 
 ### Running as a Systemd Service
 
+First, optionally create a dedicated user for running the service:
+
+```bash
+sudo useradd -r -s /bin/false ddns
+```
+
 Create a systemd service file at `/etc/systemd/system/ddns.service`:
 
 ```ini
@@ -119,6 +125,8 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 ```
+
+> **Note**: If you don't create a dedicated user, you can use an existing system user or remove the `User=ddns` line to run as root (not recommended for security).
 
 Enable and start the service:
 
@@ -145,11 +153,13 @@ docker run -d \
 ## How It Works
 
 1. **Initialization**: On startup, the service reads configuration and validates credentials
-2. **IP Detection**: Fetches the current public IP address from the specified network interface
+2. **IP Detection**: Determines the current public IP address (either from the network interface or by querying external services for NAT environments)
 3. **DNS Check**: Queries Cloudflare for the current DNS A record value
 4. **Comparison**: Compares the detected IP with the DNS record
 5. **Update**: If they differ, updates the DNS record via the Cloudflare API
 6. **Monitoring**: Waits for the configured interval and repeats the process
+
+> **Note**: When running behind NAT (typical home router setup), the service will need to query an external service to determine your public IP address rather than reading it directly from the network interface.
 
 ## Getting Your Cloudflare Credentials
 
