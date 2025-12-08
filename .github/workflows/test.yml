@@ -1,0 +1,41 @@
+name: Test
+
+# Run tests on push to any branch and on pull requests
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Go environment with the version specified in go.mod
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+
+      # Download dependencies
+      - name: Download dependencies
+        run: go mod download
+
+      # Verify dependencies
+      - name: Verify dependencies
+        run: go mod verify
+
+      # Run tests with coverage
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Display coverage report
+      - name: Coverage report
+        run: go tool cover -func=coverage.out
