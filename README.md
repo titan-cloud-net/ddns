@@ -42,7 +42,7 @@ go build -o ddns ./cmd
 ### Using Go Install
 
 ```bash
-go install github.com/titan-cloud-net/ddns/cmd@latest
+go install github.com/titan-cloud-net/ddns@latest
 ```
 
 ## Configuration
