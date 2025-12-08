@@ -158,18 +158,19 @@ docker run -d \
 - Verify your Cloudflare API token has the correct permissions
 - Check that the Zone ID matches your domain
 - Ensure the DNS record exists in Cloudflare (create it manually if needed)
+- Verify all required environment variables are set
 
 ### IP address not updating
 
-- Verify the network interface name is correct (use `ip addr` or `ifconfig` to list interfaces)
-- Check that your public IP is accessible from the interface
+- Check that you have internet connectivity
 - Review service logs for error messages
 - Ensure your Cloudflare account has sufficient API rate limits
+- Verify the DNS record name matches exactly (case-sensitive)
 
 ### Permission errors
 
-- Ensure the service has permission to read network interface information
-- The service may need elevated privileges to access certain network interfaces
+- Ensure environment variables are accessible to the service user
+- When running as systemd service, verify the user has necessary permissions
 
 ## Contributing
 
