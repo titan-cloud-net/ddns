@@ -1,3 +1,5 @@
+// Package cloudflare provides a Cloudflare DNS client implementation for the DDNS service.
+// It interacts with the Cloudflare API to manage DNS A records for dynamic DNS updates.
 package cloudflare
 
 import (
@@ -10,12 +12,13 @@ import (
 	"github.com/cloudflare/cloudflare-go/v6/zones"
 	"go.uber.org/fx"
 
-	"titan-cloud-net/ddns/pkg/ddns"
+	"github.com/titan-cloud-net/ddns/pkg/ddns"
 )
 
+// client implements the ddns.Client interface using the Cloudflare API
 type client struct {
-	zone   string
-	zoneID *string
+	zone   string  // DNS zone name (e.g., "example.com")
+	zoneID *string // Cloudflare zone ID, populated during startup
 	*cloudflare.Client
 }
 
@@ -24,16 +27,22 @@ type params struct {
 	fx.Lifecycle
 	fx.Shutdowner
 
-	ddns.Zone
+	ddns.Config
 }
 
+// NewClient creates a new Cloudflare DNS client and registers lifecycle hooks
+// The client is initialized during the fx app startup phase
 func NewClient(p params) ddns.Client {
-	client := &client{zone: string(p.Zone), Client: cloudflare.NewClient()}
+	client := &client{zone: string(p.ZoneName), Client: cloudflare.NewClient()}
+	// Register a start hook to initialize the zone ID before the service begins
 	p.Lifecycle.Append(fx.StartHook(client.start))
 	return client
 }
 
-func (c *client) GetCurrentIPv4(ctx context.Context) (ip *net.IP, recordID string, err error) {
+// GetCurrentIPv4 retrieves the current IPv4 address from the Cloudflare DNS A record
+// It returns the IP address, record ID, and any error encountered during the lookup
+func (c *client) GetCurrentIPv4(ctx context.Context) (ip net.IP, recordID string, err error) {
+	// Query Cloudflare API for A records in the specified zone
 	res, err := c.DNS.Records.List(ctx,
 		dns.RecordListParams{
 			ZoneID: cloudflare.F(*c.zoneID),
@@ -46,14 +55,16 @@ func (c *client) GetCurrentIPv4(ctx context.Context) (ip *net.IP, recordID strin
 	if len(res.Result) != 0 {
 		ipv4 := net.ParseIP(res.Result[0].Content)
 		if ipv4 != nil {
-			ip = &ipv4
+			ip = ipv4
 		}
 		recordID = res.Result[0].ID
 	}
 	return
 }
 
-func (c *client) SetARecordIP(ctx context.Context, ip *net.IP, recordID string) (err error) {
+// SetARecordIP updates the DNS A record with the specified IP address
+// It uses the record ID to target the specific record to update
+func (c *client) SetARecordIP(ctx context.Context, ip net.IP, recordID string) (err error) {
 	_, err = c.DNS.Records.Edit(ctx, recordID,
 		dns.RecordEditParams{
 			ZoneID: cloudflare.F(*c.zoneID),
@@ -64,12 +75,16 @@ func (c *client) SetARecordIP(ctx context.Context, ip *net.IP, recordID string) 
 	return
 }
 
+// start is called during application startup to initialize the Cloudflare zone ID
 func (c *client) start(ctx context.Context) (err error) {
 	c.zoneID, err = c.findZoneID(ctx, c.zone)
 	return
 }
 
+// findZoneID queries the Cloudflare API to find the zone ID for the specified zone name
+// The zone ID is required for subsequent DNS record operations
 func (c *client) findZoneID(ctx context.Context, zone string) (zoneID *string, err error) {
+	// Query Cloudflare API for zones matching the specified name
 	res, err := c.Zones.List(ctx, zones.ZoneListParams{Name: cloudflare.F(zone)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find public ip: %w", err)
