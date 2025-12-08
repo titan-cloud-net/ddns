@@ -50,9 +50,9 @@ go install github.com/titan-cloud-net/ddns@latest
 The service is configured using environment variables:
 
 - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token with DNS edit permissions
-- `CLOUDFLARE_ZONE_ID`: The Zone ID for your domain
-- `DNS_RECORD_NAME`: The DNS record name to update (e.g., `home.example.com`)
-- `CHECK_INTERVAL`: How often to check for IP changes in seconds (default: `300`)
+- `CLOUDFLARE_EMAIL`: Cloudflare API user email
+- `DNS_ZONE`: The DNS zone name to update (e.g., `home.example.com`)
+- `IP_CHECK_INTERVAL`: How often to check for IP changes. Uses [time.Duration](https://pkg.go.dev/time#Duration|time.Duration) (default: `300ms`)
 
 ## Usage
 
@@ -60,9 +60,9 @@ The service is configured using environment variables:
 
 ```bash
 export CLOUDFLARE_API_TOKEN="your-api-token"
-export CLOUDFLARE_ZONE_ID="your-zone-id"
-export DNS_RECORD_NAME="home.example.com"
-export CHECK_INTERVAL="300"
+export CLOUDFLARE_EMAIL="your-user-email"
+export DNS_ZONE="home.example.com"
+export IP_CHECK_INTERVAL="300ms"
 
 ./ddns
 ```
@@ -86,9 +86,9 @@ After=network.target
 Type=simple
 User=ddns
 Environment="CLOUDFLARE_API_TOKEN=your-api-token"
-Environment="CLOUDFLARE_ZONE_ID=your-zone-id"
-Environment="DNS_RECORD_NAME=home.example.com"
-Environment="CHECK_INTERVAL=300"
+Environment="CLOUDFLARE_EMAIL=your-user-email"
+Environment="DNS_ZONE=home.example.com"
+Environment="IP_CHECK_INTERVAL=300ms"
 ExecStart=/usr/local/bin/ddns
 Restart=always
 RestartSec=10
@@ -115,9 +115,9 @@ docker run -d \
   --name ddns \
   --network host \
   -e CLOUDFLARE_API_TOKEN="your-api-token" \
-  -e CLOUDFLARE_ZONE_ID="your-zone-id" \
-  -e DNS_RECORD_NAME="home.example.com" \
-  -e CHECK_INTERVAL="300" \
+  -e CLOUDFLARE_EMAIL="your-user-email" \
+  -e DNS_ZONE="home.example.com" \
+  -e IP_CHECK_INTERVAL="300ms" \
   ddns
 ```
 
@@ -144,19 +144,19 @@ docker run -d \
 5. Select the specific zone (domain) you want to manage
 6. Copy the generated token
 
-### Zone ID
+### Zone Name
 
 1. Log in to your Cloudflare dashboard
 2. Select your domain
 3. Scroll down to the **API** section on the right sidebar
-4. Copy the **Zone ID**
+4. Copy the **Zone Name**
 
 ## Troubleshooting
 
 ### Service fails to start
 
 - Verify your Cloudflare API token has the correct permissions
-- Check that the Zone ID matches your domain
+- Check that the Zone Name matches your domain
 - Ensure the DNS record exists in Cloudflare (create it manually if needed)
 - Verify all required environment variables are set
 
