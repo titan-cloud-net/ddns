@@ -1,19 +1,19 @@
 # DDNS - Dynamic DNS for Cloudflare
 
-A lightweight service written in Go that automatically updates Cloudflare DNS A records based on your local network interface's public IP address. Perfect for home servers, development environments, or any scenario where your public IP address may change dynamically (e.g., via DHCP).
+A lightweight service written in Go that automatically updates Cloudflare DNS A records based on your current public IP address. Perfect for home servers, development environments, or any scenario where your public IP address may change dynamically (e.g., via DHCP).
 
 ## Overview
 
-This service monitors a specified local network interface and automatically updates the corresponding DNS A record in Cloudflare whenever your public IP address changes. It leverages the official [Cloudflare Go SDK](https://github.com/cloudflare/cloudflare-go) to interact with the Cloudflare API.
+This service monitors your public IP address and automatically updates the corresponding DNS A record in Cloudflare whenever it changes. It leverages the official [Cloudflare Go SDK](https://github.com/cloudflare/cloudflare-go) to interact with the Cloudflare API.
 
 ## Features
 
-- **Automatic IP Detection**: Monitors your local network interface for public IP address changes
+- **Automatic IP Detection**: Monitors your public IP address for changes
 - **Dynamic Updates**: Automatically updates Cloudflare DNS A records when IP changes are detected
 - **Cloudflare Integration**: Uses the official Cloudflare Go SDK for reliable API interactions
 - **Lightweight**: Minimal resource footprint, suitable for running on constrained devices
-- **DHCP-Friendly**: Designed to handle dynamic IP assignments from ISPs or local DHCP servers
-- **Configurable**: Easy configuration via environment variables or configuration files
+- **DHCP-Friendly**: Designed to handle dynamic IP assignments from ISPs
+- **Simple Configuration**: Easy setup via environment variables
 
 ## Use Cases
 
@@ -27,7 +27,7 @@ This service monitors a specified local network interface and automatically upda
 - Go 1.21 or higher (for building from source)
 - A Cloudflare account with API access
 - A domain managed by Cloudflare
-- Network interface with a public IP address (or behind NAT with public IP detection)
+- Internet connectivity to detect public IP address
 
 ## Installation
 
@@ -36,64 +36,35 @@ This service monitors a specified local network interface and automatically upda
 ```bash
 git clone https://github.com/titan-cloud-net/ddns.git
 cd ddns
-go build -o ddns
+go build -o ddns ./cmd
 ```
 
 ### Using Go Install
 
 ```bash
-go install github.com/titan-cloud-net/ddns@latest
+go install github.com/titan-cloud-net/ddns/cmd@latest
 ```
 
 ## Configuration
 
-The service can be configured using environment variables or a configuration file.
-
-### Environment Variables
+The service is configured using environment variables:
 
 - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token with DNS edit permissions
 - `CLOUDFLARE_ZONE_ID`: The Zone ID for your domain
 - `DNS_RECORD_NAME`: The DNS record name to update (e.g., `home.example.com`)
-- `NETWORK_INTERFACE`: The network interface to monitor (e.g., `eth0`, `wlan0`)
-- `CHECK_INTERVAL`: How often to check for IP changes (default: `300` seconds)
-
-### Configuration File Example
-
-Create a `config.yaml` file:
-
-```yaml
-cloudflare:
-  api_token: "your-api-token-here"
-  zone_id: "your-zone-id-here"
-
-dns:
-  record_name: "home.example.com"
-  ttl: 300
-
-network:
-  interface: "eth0"
-  check_interval: 300
-```
+- `CHECK_INTERVAL`: How often to check for IP changes in seconds (default: `300`)
 
 ## Usage
 
 ### Running the Service
 
-With environment variables:
-
 ```bash
 export CLOUDFLARE_API_TOKEN="your-api-token"
 export CLOUDFLARE_ZONE_ID="your-zone-id"
 export DNS_RECORD_NAME="home.example.com"
-export NETWORK_INTERFACE="eth0"
+export CHECK_INTERVAL="300"
 
 ./ddns
-```
-
-With a configuration file:
-
-```bash
-./ddns --config config.yaml
 ```
 
 ### Running as a Systemd Service
@@ -117,7 +88,7 @@ User=ddns
 Environment="CLOUDFLARE_API_TOKEN=your-api-token"
 Environment="CLOUDFLARE_ZONE_ID=your-zone-id"
 Environment="DNS_RECORD_NAME=home.example.com"
-Environment="NETWORK_INTERFACE=eth0"
+Environment="CHECK_INTERVAL=300"
 ExecStart=/usr/local/bin/ddns
 Restart=always
 RestartSec=10
@@ -146,20 +117,20 @@ docker run -d \
   -e CLOUDFLARE_API_TOKEN="your-api-token" \
   -e CLOUDFLARE_ZONE_ID="your-zone-id" \
   -e DNS_RECORD_NAME="home.example.com" \
-  -e NETWORK_INTERFACE="eth0" \
+  -e CHECK_INTERVAL="300" \
   ddns
 ```
 
 ## How It Works
 
-1. **Initialization**: On startup, the service reads configuration and validates credentials
-2. **IP Detection**: Determines the current public IP address (either from the network interface or by querying external services for NAT environments)
-3. **DNS Check**: Queries Cloudflare for the current DNS A record value
-4. **Comparison**: Compares the detected IP with the DNS record
-5. **Update**: If they differ, updates the DNS record via the Cloudflare API
+1. **Initialization**: On startup, the service reads environment variables and validates Cloudflare credentials
+2. **IP Detection**: Queries an external service to determine the current public IP address
+3. **DNS Check**: Retrieves the current DNS A record value from Cloudflare
+4. **Comparison**: Compares the detected public IP with the DNS record
+5. **Update**: If they differ, updates the DNS A record via the Cloudflare API
 6. **Monitoring**: Waits for the configured interval and repeats the process
 
-> **Note**: When running behind NAT (typical home router setup), the service will need to query an external service to determine your public IP address rather than reading it directly from the network interface.
+> **Note**: The service automatically detects your public IP address, making it suitable for environments behind NAT (typical home/office router setups).
 
 ## Getting Your Cloudflare Credentials
 
@@ -209,6 +180,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+### Running Tests
+
+```bash
+go test ./...
+```
 
 ## License
 
