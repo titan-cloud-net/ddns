@@ -10,33 +10,24 @@ import (
 	"github.com/cloudflare/cloudflare-go/v6"
 	"github.com/cloudflare/cloudflare-go/v6/dns"
 	"github.com/cloudflare/cloudflare-go/v6/zones"
-	"go.uber.org/fx"
 
 	"github.com/titan-cloud-net/ddns/pkg/ddns"
 )
 
 // client implements the ddns.Client interface using the Cloudflare API
 type client struct {
-	zone   string  // DNS zone name (e.g., "example.com")
 	zoneID *string // Cloudflare zone ID, populated during startup
 	*cloudflare.Client
 }
 
-type params struct {
-	fx.In
-	fx.Lifecycle
-	fx.Shutdowner
-
-	ddns.Config
-}
-
 // NewClient creates a new Cloudflare DNS client and registers lifecycle hooks
 // The client is initialized during the fx app startup phase
-func NewClient(p params) ddns.Client {
-	client := &client{zone: string(p.ZoneName), Client: cloudflare.NewClient()}
-	// Register a start hook to initialize the zone ID before the service begins
-	p.Lifecycle.Append(fx.StartHook(client.start))
-	return client
+func NewClient(cfg ddns.Config) (dc ddns.Client, err error) {
+	client := &client{Client: cloudflare.NewClient()}
+
+	// initialize the zone ID before the service begins
+	client.zoneID, err = client.findZoneID(context.Background(), cfg.ZoneName)
+	return client, err
 }
 
 // GetCurrentIPv4 retrieves the current IPv4 address from the Cloudflare DNS A record
@@ -72,12 +63,6 @@ func (c *client) SetARecordIP(ctx context.Context, ip net.IP, recordID string) (
 	if err != nil {
 		err = fmt.Errorf("failed to edit DNS A record: %s", err)
 	}
-	return
-}
-
-// start is called during application startup to initialize the Cloudflare zone ID
-func (c *client) start(ctx context.Context) (err error) {
-	c.zoneID, err = c.findZoneID(ctx, c.zone)
 	return
 }
 
