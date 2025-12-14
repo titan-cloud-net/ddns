@@ -12,6 +12,8 @@ func main() {
 		fx.Provide(
 			ddns.NewConfig,
 			cloudflare.NewClient),
-		fx.Invoke(ddns.Invoke)).
+		fx.Invoke(
+			cloudflare.Invoke,
+			ddns.Invoke)).
 		Run()
 }

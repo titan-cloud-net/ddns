@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/titan-cloud-net/ddns/pkg/util"
@@ -35,29 +36,37 @@ type findIP func() (net.IP, error)
 
 // publicIP stores the last known public IP address using atomic operations
 // for thread-safe access across goroutines
-var publicIP net.IP
+var publicIP atomic.Pointer[net.IP]
 
 // Invoke initializes and starts the DDNS monitoring service
 // It sets up a background goroutine that continuously monitors and updates DNS records
 func Invoke(p params) {
+	ticker := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	// Register a stop hook to cancel the context when the application shuts down
 	p.Lifecycle.Append(fx.StopHook(func() {
 		cancel()
 	}))
 
-	// Start the DDNS monitoring loop in a separate goroutine
-	slog.Info("ip check", "interval", p.Interval.String())
-	ticker := make(chan struct{})
 	// Create a ticker goroutine that sends periodic signals at the configured interval
 	go func() {
+		slog.Info("ip check", "interval", p.Interval.String())
 		for {
-			ticker <- struct{}{}
-			time.Sleep(p.Interval)
+			select {
+			case <-ctx.Done():
+				close(ticker)
+				return
+			default:
+				ticker <- struct{}{}
+				time.Sleep(p.Interval)
+			}
 		}
 	}()
 
-	go run(ctx, ticker, p.Client, util.FindPublicIP)
+	p.Lifecycle.Append(fx.StartHook(func() {
+		// Start the DDNS monitoring loop in a separate goroutine
+		go run(ctx, ticker, p.Client, util.FindPublicIP)
+	}))
 }
 
 // run executes the main DDNS monitoring loop
@@ -80,7 +89,7 @@ func run(ctx context.Context, tick <-chan struct{}, client Client, f findIP) {
 // updateIP checks the current public IP and updates the DNS record if it has changed
 func updateIP(ctx context.Context, client Client, f findIP) {
 	// Load the last known public IP from atomic storage
-	lastIP := publicIP
+	lastIP := publicIP.Load()
 
 	// Find the current public IP address
 	ip, err := f()
@@ -108,7 +117,7 @@ func updateIP(ctx context.Context, client Client, f findIP) {
 			slog.ErrorContext(ctx, "failed to set a record content", "error", err)
 			return
 		}
-		publicIP = ip
 		slog.InfoContext(ctx, "DNS A record updated", "updated_content", ip.String(), "previous_content", dnsIP.String())
 	}
+	publicIP.Store(&ip)
 }
