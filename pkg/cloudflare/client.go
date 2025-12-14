@@ -10,6 +10,7 @@ import (
 	"github.com/cloudflare/cloudflare-go/v6"
 	"github.com/cloudflare/cloudflare-go/v6/dns"
 	"github.com/cloudflare/cloudflare-go/v6/zones"
+	"go.uber.org/fx"
 
 	"github.com/titan-cloud-net/ddns/pkg/ddns"
 )
@@ -20,14 +21,22 @@ type client struct {
 	*cloudflare.Client
 }
 
-// NewClient creates a new Cloudflare DNS client and registers lifecycle hooks
-// The client is initialized during the fx app startup phase
-func NewClient(cfg ddns.Config) (dc ddns.Client, err error) {
-	client := &client{Client: cloudflare.NewClient()}
+// NewClient creates a new Cloudflare DNS client
+func NewClient() ddns.Client {
+	return &client{Client: cloudflare.NewClient()}
+}
 
-	// initialize the zone ID before the service begins
-	client.zoneID, err = client.findZoneID(context.Background(), cfg.ZoneName)
-	return client, err
+// Invoke initializes the Cloudflare client with the zone ID during application startup
+// It registers a lifecycle hook to fetch the zone ID from the Cloudflare API before
+// the DDNS service begins monitoring and updating DNS records
+func Invoke(lifecycle fx.Lifecycle, dc ddns.Client, cfg ddns.Config) {
+	lifecycle.Append(fx.StartHook(func(ctx context.Context) (err error) {
+		if client, ok := dc.(*client); ok {
+			// Initialize the zone ID before the service begins
+			client.zoneID, err = client.findZoneID(ctx, cfg.ZoneName)
+		}
+		return
+	}))
 }
 
 // GetCurrentIPv4 retrieves the current IPv4 address from the Cloudflare DNS A record
@@ -75,6 +84,7 @@ func (c *client) findZoneID(ctx context.Context, zone string) (zoneID *string, e
 		return nil, fmt.Errorf("failed to find public ip: %w", err)
 	}
 
+	// Extract the zone ID from the first matching zone
 	if len(res.Result) != 0 {
 		zoneID = &res.Result[0].ID
 		return
