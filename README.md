@@ -17,17 +17,18 @@ This service monitors your public IP address and automatically updates the corre
 
 ## Use Cases
 
-- **Home Servers**: Keep your home server accessible via a consistent domain name even when your ISP assigns a new IP
+- **Directly-Connected Hosts**: Keep a host with a directly-assigned public IP (e.g. bridge-mode modem, PPPoE) accessible via a consistent domain name even when your ISP assigns a new IP
 - **Development Environments**: Access your development server remotely without worrying about IP changes
 - **IoT Devices**: Maintain connectivity to IoT devices with dynamic IP addresses
 - **Small Business**: Cost-effective DNS management for small businesses with dynamic IP assignments
 
 ## Prerequisites
 
-- Go 1.21 or higher (for building from source)
+- Linux (the service watches interface address changes via netlink, which is Linux-specific)
+- Go 1.26 or higher (for building from source)
 - A Cloudflare account with API access
 - A domain managed by Cloudflare
-- Internet connectivity to detect public IP address
+- A network interface on the host directly assigned the public IP (see [How It Works](#how-it-works))
 
 ## Installation
 
@@ -52,7 +53,7 @@ The service is configured using environment variables:
 - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token with DNS edit permissions
 - `CLOUDFLARE_EMAIL`: Cloudflare API user email
 - `DNS_ZONE`: The DNS zone name to update (e.g., `home.example.com`)
-- `IP_CHECK_INTERVAL`: How often to check for IP changes. Uses [time.Duration](https://pkg.go.dev/time#Duration|time.Duration) (default: `300ms`)
+- `LOG_LEVEL`: Logging verbosity — `debug`, `info`, `warn`, or `error` (default: `info`)
 
 ## Usage
 
@@ -62,7 +63,6 @@ The service is configured using environment variables:
 export CLOUDFLARE_API_TOKEN="your-api-token"
 export CLOUDFLARE_EMAIL="your-user-email"
 export DNS_ZONE="home.example.com"
-export IP_CHECK_INTERVAL="300ms"
 
 ./ddns
 ```
@@ -88,7 +88,6 @@ User=ddns
 Environment="CLOUDFLARE_API_TOKEN=your-api-token"
 Environment="CLOUDFLARE_EMAIL=your-user-email"
 Environment="DNS_ZONE=home.example.com"
-Environment="IP_CHECK_INTERVAL=300ms"
 ExecStart=/usr/local/bin/ddns
 Restart=always
 RestartSec=10
@@ -117,20 +116,21 @@ docker run -d \
   -e CLOUDFLARE_API_TOKEN="your-api-token" \
   -e CLOUDFLARE_EMAIL="your-user-email" \
   -e DNS_ZONE="home.example.com" \
-  -e IP_CHECK_INTERVAL="300ms" \
   ddns
 ```
+
+> **Note**: `--network host` is required so the container shares the host's network namespace — the service watches the *host's* interfaces via netlink, which isn't possible from an isolated container network.
 
 ## How It Works
 
 1. **Initialization**: On startup, the service reads environment variables and validates Cloudflare credentials
-2. **IP Detection**: Queries an external service to determine the current public IP address
-3. **DNS Check**: Retrieves the current DNS A record value from Cloudflare
-4. **Comparison**: Compares the detected public IP with the DNS record
-5. **Update**: If they differ, updates the DNS A record via the Cloudflare API
-6. **Monitoring**: Waits for the configured interval and repeats the process
+2. **Interface Watching**: Subscribes to Linux netlink address-change notifications and requests the current address list for all interfaces
+3. **IP Filtering**: Ignores private, loopback, and link-local addresses, reacting to the first public IPv4 (falling back to IPv6) address it observes
+4. **DNS Check**: Retrieves the current DNS A record value from Cloudflare
+5. **Comparison**: Compares the detected public IP with the DNS record
+6. **Update**: If they differ, updates the DNS A record via the Cloudflare API
 
-> **Note**: The service automatically detects your public IP address, making it suitable for environments behind NAT (typical home/office router setups).
+> **Note**: Updates are event-driven — the service reacts immediately to netlink address-change events rather than polling on a timer. Because it only sees addresses assigned to the host's own interfaces, the host itself must hold the public IP directly (e.g. a cloud VM, a bridge-mode modem, or PPPoE termination). This does **not** work behind a typical home/office NAT router, where the public IP is known only to the router, not the host.
 
 ## Getting Your Cloudflare Credentials
 

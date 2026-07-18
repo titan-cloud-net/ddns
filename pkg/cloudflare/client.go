@@ -1,5 +1,5 @@
 // Package cloudflare provides a Cloudflare DNS client implementation for the DDNS service.
-// It interacts with the Cloudflare API to manage DNS A records for dynamic DNS updates.
+// It interacts with the Cloudflare API to manage DNS A and AAAA records for dynamic DNS updates.
 package cloudflare
 
 import (
@@ -71,6 +71,42 @@ func (c *client) SetARecordIP(ctx context.Context, ip net.IP, recordID string) (
 			Body:   dns.ARecordParam{Content: cloudflare.F(ip.To4().String())}})
 	if err != nil {
 		err = fmt.Errorf("failed to edit DNS A record: %s", err)
+	}
+	return
+}
+
+// GetCurrentIPv6 retrieves the current IPv6 address from the Cloudflare DNS AAAA record
+// It returns the IP address, record ID, and any error encountered during the lookup
+func (c *client) GetCurrentIPv6(ctx context.Context) (ip net.IP, recordID string, err error) {
+	// Query Cloudflare API for AAAA records in the specified zone
+	res, err := c.DNS.Records.List(ctx,
+		dns.RecordListParams{
+			ZoneID: cloudflare.F(*c.zoneID),
+			Type:   cloudflare.F(dns.RecordListParamsTypeAAAA)})
+	if err != nil {
+		err = fmt.Errorf("failed to find AAAA record IP: %w", err)
+		return
+	}
+
+	if len(res.Result) != 0 {
+		ipv6 := net.ParseIP(res.Result[0].Content)
+		if ipv6 != nil {
+			ip = ipv6
+		}
+		recordID = res.Result[0].ID
+	}
+	return
+}
+
+// SetAAAARecordIP updates the DNS AAAA record with the specified IP address
+// It uses the record ID to target the specific record to update
+func (c *client) SetAAAARecordIP(ctx context.Context, ip net.IP, recordID string) (err error) {
+	_, err = c.DNS.Records.Edit(ctx, recordID,
+		dns.RecordEditParams{
+			ZoneID: cloudflare.F(*c.zoneID),
+			Body:   dns.AAAARecordParam{Content: cloudflare.F(ip.To16().String())}})
+	if err != nil {
+		err = fmt.Errorf("failed to edit DNS AAAA record: %s", err)
 	}
 	return
 }

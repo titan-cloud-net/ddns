@@ -79,7 +79,7 @@ type MockClient_GetCurrentIPv4_Call struct {
 
 // GetCurrentIPv4 is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockClient_Expecter) GetCurrentIPv4(ctx interface{}) *MockClient_GetCurrentIPv4_Call {
+func (_e *MockClient_Expecter) GetCurrentIPv4(ctx any) *MockClient_GetCurrentIPv4_Call {
 	return &MockClient_GetCurrentIPv4_Call{Call: _e.mock.On("GetCurrentIPv4", ctx)}
 }
 
@@ -102,6 +102,137 @@ func (_c *MockClient_GetCurrentIPv4_Call) Return(ip net.IP, recordID string, err
 }
 
 func (_c *MockClient_GetCurrentIPv4_Call) RunAndReturn(run func(ctx context.Context) (net.IP, string, error)) *MockClient_GetCurrentIPv4_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetCurrentIPv6 provides a mock function for the type MockClient
+func (_mock *MockClient) GetCurrentIPv6(ctx context.Context) (net.IP, string, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCurrentIPv6")
+	}
+
+	var r0 net.IP
+	var r1 string
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (net.IP, string, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) net.IP); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(net.IP)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) string); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = returnFunc(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockClient_GetCurrentIPv6_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCurrentIPv6'
+type MockClient_GetCurrentIPv6_Call struct {
+	*mock.Call
+}
+
+// GetCurrentIPv6 is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockClient_Expecter) GetCurrentIPv6(ctx any) *MockClient_GetCurrentIPv6_Call {
+	return &MockClient_GetCurrentIPv6_Call{Call: _e.mock.On("GetCurrentIPv6", ctx)}
+}
+
+func (_c *MockClient_GetCurrentIPv6_Call) Run(run func(ctx context.Context)) *MockClient_GetCurrentIPv6_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_GetCurrentIPv6_Call) Return(ip net.IP, recordID string, err error) *MockClient_GetCurrentIPv6_Call {
+	_c.Call.Return(ip, recordID, err)
+	return _c
+}
+
+func (_c *MockClient_GetCurrentIPv6_Call) RunAndReturn(run func(ctx context.Context) (net.IP, string, error)) *MockClient_GetCurrentIPv6_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetAAAARecordIP provides a mock function for the type MockClient
+func (_mock *MockClient) SetAAAARecordIP(ctx context.Context, ip net.IP, recordID string) error {
+	ret := _mock.Called(ctx, ip, recordID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetAAAARecordIP")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, net.IP, string) error); ok {
+		r0 = returnFunc(ctx, ip, recordID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockClient_SetAAAARecordIP_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAAAARecordIP'
+type MockClient_SetAAAARecordIP_Call struct {
+	*mock.Call
+}
+
+// SetAAAARecordIP is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ip net.IP
+//   - recordID string
+func (_e *MockClient_Expecter) SetAAAARecordIP(ctx any, ip any, recordID any) *MockClient_SetAAAARecordIP_Call {
+	return &MockClient_SetAAAARecordIP_Call{Call: _e.mock.On("SetAAAARecordIP", ctx, ip, recordID)}
+}
+
+func (_c *MockClient_SetAAAARecordIP_Call) Run(run func(ctx context.Context, ip net.IP, recordID string)) *MockClient_SetAAAARecordIP_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 net.IP
+		if args[1] != nil {
+			arg1 = args[1].(net.IP)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_SetAAAARecordIP_Call) Return(err error) *MockClient_SetAAAARecordIP_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockClient_SetAAAARecordIP_Call) RunAndReturn(run func(ctx context.Context, ip net.IP, recordID string) error) *MockClient_SetAAAARecordIP_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -132,7 +263,7 @@ type MockClient_SetARecordIP_Call struct {
 //   - ctx context.Context
 //   - ip net.IP
 //   - recordID string
-func (_e *MockClient_Expecter) SetARecordIP(ctx interface{}, ip interface{}, recordID interface{}) *MockClient_SetARecordIP_Call {
+func (_e *MockClient_Expecter) SetARecordIP(ctx any, ip any, recordID any) *MockClient_SetARecordIP_Call {
 	return &MockClient_SetARecordIP_Call{Call: _e.mock.On("SetARecordIP", ctx, ip, recordID)}
 }
 
