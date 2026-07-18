@@ -79,7 +79,7 @@ type MockClient_GetCurrentIPv4_Call struct {
 
 // GetCurrentIPv4 is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockClient_Expecter) GetCurrentIPv4(ctx interface{}) *MockClient_GetCurrentIPv4_Call {
+func (_e *MockClient_Expecter) GetCurrentIPv4(ctx any) *MockClient_GetCurrentIPv4_Call {
 	return &MockClient_GetCurrentIPv4_Call{Call: _e.mock.On("GetCurrentIPv4", ctx)}
 }
 
@@ -132,7 +132,7 @@ type MockClient_SetARecordIP_Call struct {
 //   - ctx context.Context
 //   - ip net.IP
 //   - recordID string
-func (_e *MockClient_Expecter) SetARecordIP(ctx interface{}, ip interface{}, recordID interface{}) *MockClient_SetARecordIP_Call {
+func (_e *MockClient_Expecter) SetARecordIP(ctx any, ip any, recordID any) *MockClient_SetARecordIP_Call {
 	return &MockClient_SetARecordIP_Call{Call: _e.mock.On("SetARecordIP", ctx, ip, recordID)}
 }
 

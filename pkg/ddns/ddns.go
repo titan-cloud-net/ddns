@@ -7,9 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"sync/atomic"
-	"time"
 
-	"github.com/titan-cloud-net/ddns/pkg/util"
+	"github.com/titan-cloud-net/ddns/pkg/netlink"
 	"go.uber.org/fx"
 )
 
@@ -29,74 +28,49 @@ type params struct {
 
 	Client
 	Config
+	netlink.Watcher
 }
-
-// findIP is a function type for finding the public IP address
-type findIP func() (net.IP, error)
 
 // publicIP stores the last known public IP address using atomic operations
 // for thread-safe access across goroutines
 var publicIP atomic.Pointer[net.IP]
 
-// Invoke initializes and starts the DDNS monitoring service
-// It sets up a background goroutine that continuously monitors and updates DNS records
 func Invoke(p params) {
-	ticker := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	// Register a stop hook to cancel the context when the application shuts down
-	p.Lifecycle.Append(fx.StopHook(func() {
-		cancel()
-	}))
-
-	// Create a ticker goroutine that sends periodic signals at the configured interval
-	go func() {
-		slog.Info("ip check", "interval", p.Interval.String())
-		for {
-			select {
-			case <-ctx.Done():
-				close(ticker)
-				return
-			default:
-				ticker <- struct{}{}
-				time.Sleep(p.Interval)
-			}
-		}
-	}()
-
-	p.Lifecycle.Append(fx.StartHook(func() {
-		// Start the DDNS monitoring loop in a separate goroutine
-		go run(ctx, ticker, p.Client, util.FindPublicIP)
-	}))
+	p.Lifecycle.Append(fx.StartStopHook(
+		func() {
+			go run(ctx, p.Client, p.Watcher)
+		},
+		func() {
+			cancel()
+		}))
 }
 
-// run executes the main DDNS monitoring loop
-// It periodically checks if the system's public IP has changed and updates the DNS record if needed
-func run(ctx context.Context, tick <-chan struct{}, client Client, f findIP) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case _, open := <-tick:
-			if !open {
-				return
+func run(ctx context.Context, client Client, watcher netlink.Watcher) {
+	for ip := range watcher.Watch() {
+		slog.Debug("interface event", "ip", ip.String())
+		if !ip.IsPrivate() &&
+			!ip.IsLinkLocalUnicast() &&
+			!ip.IsLoopback() {
+			// Check for IPv4 address first
+			if ip.To4() != nil {
+				updateIP(ctx, client, ip)
+				break
 			}
-			// Perform IP check and update if necessary
-			updateIP(ctx, client, f)
+
+			// Fall back to IPv6 if no IPv4 is available
+			if ip.To16() != nil {
+				updateIP(ctx, client, ip)
+				break
+			}
 		}
 	}
 }
 
 // updateIP checks the current public IP and updates the DNS record if it has changed
-func updateIP(ctx context.Context, client Client, f findIP) {
+func updateIP(ctx context.Context, client Client, ip net.IP) {
 	// Load the last known public IP from atomic storage
 	lastIP := publicIP.Load()
-
-	// Find the current public IP address
-	ip, err := f()
-	if err != nil || ip == nil {
-		slog.ErrorContext(ctx, "failed to find interface with public ip", "ip", ip, "error", err)
-		return
-	}
 
 	// If IP hasn't changed since last check, skip DNS query
 	if lastIP != nil && lastIP.Equal(ip) {
@@ -105,7 +79,7 @@ func updateIP(ctx context.Context, client Client, f findIP) {
 
 	dnsIP, recordID, err := client.GetCurrentIPv4(ctx)
 	if err != nil || dnsIP == nil {
-		slog.ErrorContext(ctx, "failed to find interface with public ip", "ip", ip, "error", err)
+		slog.Error("failed to find interface with public ip", "ip", ip, "error", err)
 		return
 	}
 
@@ -114,10 +88,10 @@ func updateIP(ctx context.Context, client Client, f findIP) {
 		// IP addresses don't match, update the DNS record
 		err := client.SetARecordIP(ctx, ip, recordID)
 		if err != nil {
-			slog.ErrorContext(ctx, "failed to set a record content", "error", err)
+			slog.Error("failed to set a record content", "error", err)
 			return
 		}
-		slog.InfoContext(ctx, "DNS A record updated", "updated_content", ip.String(), "previous_content", dnsIP.String())
+		slog.Info("DNS A record updated", "updated_content", ip.String(), "previous_content", dnsIP.String())
 	}
 	publicIP.Store(&ip)
 }
