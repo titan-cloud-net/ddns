@@ -7,6 +7,16 @@ import (
 	"time"
 )
 
+// fakeWatcher is a minimal netlink.Watcher for tests; the real Watch mock
+// lives in pkg/netlink's own test-only mocks_test.go and isn't importable here.
+type fakeWatcher struct {
+	updates chan net.IP
+}
+
+func (w *fakeWatcher) Watch() <-chan net.IP {
+	return w.updates
+}
+
 // TestRun verifies the DDNS monitoring loop behavior
 func TestRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -27,27 +37,15 @@ func TestRun(t *testing.T) {
 		Return(nil).
 		Once()
 
-	// Create a ticker that sends one signal then closes
-	ticker := make(chan struct{})
-	go func() {
-		ticker <- struct{}{}
-		close(ticker)
-	}()
-
 	// Test Case 1: DNS record content should be updated when IP changes
-	run(ctx, ticker, client, func() (net.IP, error) {
-		return updatedIP, nil
-	})
-
-	// Create a new ticker for the second test
-	ticker = make(chan struct{})
-	go func() {
-		ticker <- struct{}{}
-		close(ticker)
-	}()
+	watcher := &fakeWatcher{updates: make(chan net.IP, 1)}
+	watcher.updates <- updatedIP
+	close(watcher.updates)
+	run(ctx, client, watcher)
 
 	// Test Case 2: DNS record update should be skipped when IP hasn't changed
-	run(ctx, ticker, client, func() (net.IP, error) {
-		return net.ParseIP(`1.1.1.1`).To4(), nil
-	})
+	watcher = &fakeWatcher{updates: make(chan net.IP, 1)}
+	watcher.updates <- net.ParseIP(`1.1.1.1`).To4()
+	close(watcher.updates)
+	run(ctx, client, watcher)
 }
