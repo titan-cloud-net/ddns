@@ -8,15 +8,25 @@ DDNS is a small Go service that watches the local machine's network interfaces a
 Cloudflare DNS A record pointed at the current public IP. It's built with `go.uber.org/fx` for
 dependency injection/lifecycle management.
 
-## Platform constraint: Linux only
+## Platform constraint: Linux and macOS only
 
-`pkg/netlink` talks to the kernel directly via `AF_NETLINK` sockets (`golang.org/x/sys/unix` +
-the standard `syscall` package's netlink helpers). This only compiles and runs on Linux.
+`pkg/netlink` talks to the kernel directly to watch for interface address changes, and has no
+portable implementation — it's split by build tag per OS:
 
-- On a non-Linux dev machine (e.g. macOS), `go build`/`go vet` still work if you cross-compile:
-  `GOOS=linux GOARCH=amd64 go build ./...` — but the resulting binary/test can't be *executed*
-  locally (`exec format error`).
-- To actually run tests on a non-Linux host, build and run inside a Linux container. If `docker`
+- `netlink.go` (no build tag): the shared `Watcher` interface, lifecycle plumbing, and `New`/
+  `Invoke`. This is the only part of the package other packages depend on.
+- `netlink_linux.go` (`//go:build linux`): opens an `AF_NETLINK` socket (`golang.org/x/sys/unix` +
+  the standard `syscall` package's netlink helpers).
+- `netlink_darwin.go` (`//go:build darwin`): opens a `PF_ROUTE`/`AF_ROUTE` socket via
+  `golang.org/x/net/route` — BSD's equivalent kernel facility. Only Darwin has been added; other
+  BSDs (`golang.org/x/net/route` also supports FreeBSD/NetBSD/OpenBSD/DragonFly) would need their
+  own `run()` verified against that package's per-OS wire formats before enabling the build tag.
+
+There is no Windows implementation. On an unsupported dev machine, `go build`/`go vet` still work
+if you cross-compile, e.g. `GOOS=linux GOARCH=amd64 go build ./...`, but the resulting
+binary/test can't be *executed* locally (`exec format error`).
+
+- To run Linux tests from a non-Linux host, build and run inside a Linux container. If `docker`
   resolves to a remote (non-local) context — check with `docker context ls` — bind mounts of the
   local working directory won't work because the path doesn't exist on the remote host; instead
   build an image that `COPY`s the source in:
@@ -27,6 +37,9 @@ the standard `syscall` package's netlink helpers). This only compiles and runs o
   CMD ["go", "test", "./...", "-v"]
   ```
   then `docker build` + `docker run` that image.
+- The `netlink_darwin.go` path can only be *executed* on an actual macOS host (or cross-compiled
+  and checked with `go vet`/`go build` elsewhere) — there's no equivalent container trick for
+  Darwin.
 
 ## Commands
 
